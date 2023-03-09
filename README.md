@@ -18,11 +18,11 @@ Refer to the [LDAP Secrets Engine tutorial](https://developer.hashicorp.com/vaul
 
 You need the following to try this demonstration lab.
 
-1. [Docker Desktop](https://www.docker.com/products/docker-desktop)
+1. [Docker Desktop](https://www.docker.com/products/docker-desktop) installed.
 
-1. A clone of this [HashiCorp Education learn-vault-openldap-ssh](https://github.com/hashicorp-education/learn-vault-openldap-ssh)
+1. Clone of the [HashiCorp Education learn-vault-openldap-ssh](https://github.com/hashicorp-education/learn-vault-openldap-ssh) repository.
 
-1. LDAP utilities; some operating systems, such as macOS install these by default, or you can install them via package on others.
+1. LDAP utilities installed and on your system `PATH`; some operating systems, such as macOS install these by default, or you can install them via package on others.
     - `ldapadd`
     - `ldappasswd`
 
