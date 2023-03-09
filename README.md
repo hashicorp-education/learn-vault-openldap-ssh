@@ -12,7 +12,7 @@ Once you establish initial SSH authentication through OpenLDAP, you can use Vaul
 
 > **NOTE:** As this is purely an informative feature demonstration, the environment is not configured to use TLS for Vault and OpenLDAP.
 
-Refer to the [LDAP Secrets Engine tutorial](https://developer.hashicorp.com/vault/tutorials/secrets-management/openldap) for additional detail on using the OpenLDAP secrets engine.
+Refer to the [LDAP Secrets Engine tutorial](https://developer.hashicorp.com/vault/tutorials/secrets-management/openldap) for additional detail on using the LDAP secrets engine.
 
 ## Prerequisites
 
@@ -145,7 +145,7 @@ With the OpenLDAP container fully configured, you can build and running the SSH 
 
 ### Secure Shell Daemon (sshd) container
 
-The sshd container you use in this demonstration configures PAM for OpenLDAP based logins. You must build the container image from the included `Dockerfile.centos7` file before running it.
+The sshd container you use in this demonstration configures PAM for LDAP based logins. You must build the container image from the included `Dockerfile.centos7` file before running it.
 
 1. Use `docker build` with the flags shown to build the container.
 
@@ -270,7 +270,7 @@ You can use a simple Vault development server container for this demonstration l
     learn-sshd          Up 14 seconds
     ```
 
-    From this point on, you will execute a shell in the Vault server container and carry out commands to configure the Vault OpenLDAP secrets engine from within the container itself.
+    From this point on, you will execute a shell in the Vault server container and carry out commands to configure the Vault LDAP secrets engine from within the container itself.
 
 1. Use `docker exec` to open a shell in the Vault server container.
 
@@ -300,7 +300,7 @@ You can use a simple Vault development server container for this demonstration l
     HA Enabled      false
     ```
 
-    Great, Vault is ready to go and you are now ready to configure the OpenLDAP secrets engine.
+    Great, Vault is ready to go and you are now ready to configure the LDAP secrets engine.
 
 1. First, use `vault login` authenticate with the root `c0ffee0ca7` token.
 
@@ -331,24 +331,24 @@ Now that you authenticated with the root token, continue with the secrets engine
 > ***NOTE:** This guide uses the initial root token for all Vault operations solely for convenience and simplicity. In production use, Vault you should guard root tokens, and not generally use them. Refer to the [Root Tokens](https://master--vault-www.netlify.com/docs/concepts/tokens/#root-tokens) documentation to learn more.
 
 
-#### Enable and configure OpenLDAP Secrets Engine
+#### Enable and configure LDAP Secrets Engine
 
 1. First, use `vault secrets enable` to enable the secrets engine.
 
     ```shell
-    vault secrets enable openldap
+    vault secrets enable ldap
     ```
 
     **Output:**
 
     ```plaintext
-    Success! Enabled the openldap secrets engine at: openldap/
+    Success! Enabled the ldap secrets engine at: ldap/
     ```
 
 1. Next, use `vault write` to configure the secrets engine.
 
     ```shell
-    vault write openldap/config \
+    vault write ldap/config \
         binddn=cn=admin,dc=example,dc=com \
         bindpass=admin \
         url=ldap://learn-ldap
@@ -357,25 +357,25 @@ Now that you authenticated with the root token, continue with the secrets engine
     **Output:**
 
     ```plaintext
-    Success! Data written to: openldap/config
+    Success! Data written to: ldap/config
     ```
 
 1. Then, rotate the root credential so that Vault has sole control of it from this point going forward.
 
     ```shell
-    vault write -f openldap/rotate-root
+    vault write -f ldap/rotate-root
     ```
 
     **Output:**
 
     ```plaintext
-    Success! Data written to: openldap/rotate-root
+    Success! Data written to: ldap/rotate-root
     ```
 
 1. Now create a static role to manage the _learner_ user's credentials and while you are at it, you can define an automatic rotation period of 24 hours for example as well.
 
     ```shell
-    vault write openldap/static-role/learner \
+    vault write ldap/static-role/learner \
         dn='uid=learner,ou=users,dc=example,dc=com' \
         username='learner' \
         rotation_period="24h"
@@ -384,19 +384,19 @@ Now that you authenticated with the root token, continue with the secrets engine
     **Output:**
 
     ```plaintext
-    Success! Data written to: openldap/static-role/learner
+    Success! Data written to: ldap/static-role/learner
     ```
 
 1. Rotate the _learner_ password
 
     ```shell
-    vault write -f /openldap/rotate-role/learner
+    vault write -f /ldap/rotate-role/learner
     ```
 
     **Output:**
 
     ```plaintext
-    Success! Data written to: openldap/rotate-role/learner
+    Success! Data written to: ldap/rotate-role/learner
     ```
 
 
@@ -416,10 +416,10 @@ Indeed this is the case, but now that you rotated the credential, what is the ne
 
 ## Back to Vault
 
-Return to the terminal where you are running within the Vault container. You can ask Vault for a credential by reading from the _openldap/static-cred/learner_. If you use the `-field` flag, you can ask for just the raw password string.
+Return to the terminal where you are running within the Vault container. You can ask Vault for a credential by reading from the _ldap/static-cred/learner_. If you use the `-field` flag, you can ask for just the raw password string.
 
 ```plaintext
-# vault read -field=password openldap/static-cred/learner
+# vault read -field=password ldap/static-cred/learner
 ```
 
 > **NOTE:** This operation produces sensitive output.
@@ -433,7 +433,7 @@ ZdSuDuHEUeeLlNijYXF527RzYdiF34h2YmgAv0EhNhpLRhCUmmpkGzenTQHyTs1H
 If you'd prefer to output all the metadata associated with the secret, just omit the `-field=password`.
 
 ```plaintext
-# vault read openldap/static-cred/learner
+# vault read ldap/static-cred/learner
 ```
 
 **Output example:**
@@ -497,8 +497,8 @@ learn-vault
 1. [hashicorp/vault](https://hub.docker.com/_/vault)
 1. [hashicorp/vault GitHub repository](https://github.com/hashicorp/docker-vault)
 1. [Vault server development mode](https://www.vaultproject.io/docs/commands/server/#inlinecode--dev-1)
-1. [OpenLDAP Secrets Engine](https://www.vaultproject.io/docs/secrets/openldap/)
-1. [OpenLDAP Secrets Engine API](https://www.vaultproject.io/api-docs/secret/openldap/)
+1. [LDAP Secrets Engine](https://developer.hashicorp.com/vault/docs/secrets/ldap)
+1. [LDAP Secrets Engine API](https://developer.hashicorp.com/vault/api-docs/secret/ldap)
 1. [OpenLDAP](https://www.openldap.org/)
 1. [osixia/openldap](https://hub.docker.com/r/osixia/openldap)
 1. [osixia/openldap  GitHub repository](https://github.com/osixia/docker-openldap)
