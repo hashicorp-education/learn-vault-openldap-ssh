@@ -18,19 +18,19 @@ Refer to the [LDAP Secrets Engine tutorial](https://developer.hashicorp.com/vaul
 
 You need the following to try this demonstration lab.
 
-1. [Docker Desktop](https://www.docker.com/products/docker-desktop) installed.
+1. [Docker Desktop](https://www.docker.com/products/docker-desktop) installed and running.
 
-1. Clone of the [HashiCorp Education learn-vault-openldap-ssh](https://github.com/hashicorp-education/learn-vault-openldap-ssh) repository.
+1. [HashiCorp Education learn-vault-openldap-ssh](https://github.com/hashicorp-education/learn-vault-openldap-ssh) repository clone.
 
 1. LDAP utilities installed and on your system `PATH`; some operating systems, such as macOS install these by default, or you can install them via package on others.
     - `ldapadd`
     - `ldappasswd`
 
-This lab was last tested 13 Mar 2020 on a macOS 10.15.3 using the following configuration.
+This lab was last tested 9 Mar 2023 on a macOS 12.6.3 using the following versions.
 
 ```shell
 docker version --format '{{.Server.Version}}'
-19.03.5
+20.10.23
 ```
 
 ## Setup the infrastructure
@@ -41,10 +41,10 @@ Once you meet all prerequisites, proceed with the setup to establish a dedicated
 
 Create a Docker network for your containers to keep them isolated from any existing containers.
 
-Use the `docker network create` command to create a bridged network (the default driver) named _learn-vault_.
+Create a bridged network named learn-vault-ldap-ssh.
 
 ```shell
-docker network create learn-vault
+docker network create learn-vault-ldap-ssh
 ```
 
 **Output example:**
@@ -55,13 +55,13 @@ cab57becef85420f00cb78a41eecd21a196e102a52f7843a3ddff5f529ff4527
 
 ### OpenLDAP container
 
-1. Use `docker run` to run the OpenLDAP container using settings as shown in this example.
+1. Run the OpenLDAP container.
 
     ```shell
     docker run \
       --name=learn-ldap \
       --hostname=learn-ldap \
-      --network=learn-vault \
+      --network=learn-vault-ldap-ssh \
       -p 389:389 \
       -e LDAP_ORGANISATION="Example" \
       -e LDAP_DOMAIN="example.com" \
@@ -79,7 +79,7 @@ cab57becef85420f00cb78a41eecd21a196e102a52f7843a3ddff5f529ff4527
     54276896dfbd840dda7af7b3e5407260889794529d16212da461578667cea3f1
     ```
 
-1. Check that the container is up and ready using the `docker ps` command.
+1. Check that the container is up and ready.
 
     ```
     docker ps -f name=learn-ldap --format "table {{.Names}}\t{{.Status}}"
@@ -87,13 +87,13 @@ cab57becef85420f00cb78a41eecd21a196e102a52f7843a3ddff5f529ff4527
     learn-ldap          Up 5 seconds
     ```
 
-Now that the OpenLDAP server is ready, you can move on to configuring it.
+Now that the OpenLDAP server is ready, you can configure it.
 
 #### OpenLDAP configuration
 
 The OpenLDAP server needs a bit of additional configuration to define some initial groups and a POSIX user account named _learner_. You'll use this account to authenticate to the sshd container later on. You can find this configuration in the files `config/base.ldif` and `config/learn.ldif`.
 
-1. Use the `ldapadd` command to add configuration from `configs.base.ldif` to your OpenLDAP server to add initial users and groups.
+1. Add configuration from `configs.base.ldif` to your OpenLDAP server to add initial users and groups.
 
     ```shell
     ldapadd \
@@ -111,7 +111,7 @@ The OpenLDAP server needs a bit of additional configuration to define some initi
     adding new entry "ou=groups,dc=example,dc=com"
     ```
 
-1. Next, add the POSIX user _learner_ with the `ldapadd` command and  configuration from the file `config/learner.ldif`.
+1. Next, add the POSIX user _learner_ with configuration from the file `config/learner.ldif`.
 
     ```shell
     ldapadd \
@@ -129,7 +129,7 @@ The OpenLDAP server needs a bit of additional configuration to define some initi
     adding new entry "cn=learners,ou=groups,dc=example,dc=com"
     ```
 
-1. Use `ldappasswd` to set _learner_'s password value to the literal string _password_.
+1. Set _learner_'s password value to the literal string password.
 
     ```shell
     ldappasswd \
@@ -139,15 +139,15 @@ The OpenLDAP server needs a bit of additional configuration to define some initi
       -x "uid=learner,ou=users,dc=example,dc=com"
     ```
 
-    Successful results of this command should produce no output.
+    This command produces no output.
 
-With the OpenLDAP container fully configured, you can build and running the SSH container.
+With your OpenLDAP container fully configured, you can build and run the SSH container.
 
 ### Secure Shell Daemon (sshd) container
 
-The sshd container you use in this demonstration configures PAM for LDAP based logins. You must build the container image from the included `Dockerfile.centos7` file before running it.
+The sshd container in this demonstration lab configures PAM for LDAP based logins. You must build the container image from the included `Dockerfile.centos7` file before running it.
 
-1. Use `docker build` with the flags shown to build the container.
+1. Build the container.
 
     ```shell
     docker build . -f Dockerfile.centos7 -t sshtest:1.0.0
@@ -158,18 +158,18 @@ The sshd container you use in this demonstration configures PAM for LDAP based l
     The process requires around a minute the first time depending on your Docker host system. The output should conclude with successful built and tagged messages as in this example.
 
     ```plaintext
-    ...
+    ...snip...
     Successfully built a3400498ff9e
     Successfully tagged sshtest:1.0.0
     ```
 
-1. Use `docker run` to run the container image.
+1. Run the container image.
 
     ```shell
     docker run \
       --name=learn-sshd \
       --hostname=learn-sshd \
-      --network=learn-vault \
+      --network=learn-vault-ldap-ssh \
       -e SSH_PASSWORD_AUTHENTICATION='true' \
       -p 2022:22 \
       --detach \
@@ -187,7 +187,7 @@ The sshd container you use in this demonstration configures PAM for LDAP based l
     b7ed04c3a15a3d9d0317a549bd4541f92a69322b5bd0422f9d3a33b16c27a8c4
     ```
 
-1. Check that the container is up and ready using the `docker ps` command.
+1. Check that the container is up and ready.
 
     ```
     docker ps -f name=learn-sshd --format "table {{.Names}}\t{{.Status}}"
@@ -205,7 +205,7 @@ Now that the sshd server is ready, you can test it.
     ssh -l learner 0.0.0.0 -p 2022
     ```
 
-1. Since this is the first connection to the sshd container, it prompts you with some information about the host and asked whether you want to continue connecting.
+1. Since this is your first connection to the sshd container, it prompts you with some information about the host and asked whether you want to continue connecting.
 
     ```plaintext
     The authenticity of host '[0.0.0.0]:2022 ([0.0.0.0]:2022)' can't be established.
@@ -221,21 +221,21 @@ Now that the sshd server is ready, you can test it.
     [learner@sshd ~]$
     ```
 
-1. Enter `exit` to get out of the SSH shell.
+1. Enter `exit` to get out of the SSH container shell.
 
-Now that you authenticated with the sshd server, configure Vault to manage the LDAP credential for your _learner_ user, and then rotate it.
+Now that you've authenticated with the sshd server, configure Vault to manage the LDAP credential for your _learner_ user, and then rotate it.
 
 ### Vault container
 
 You can use a simple Vault development server container for this demonstration lab.
 
-1. Use `docker run`, to run the Vault container with flags as shown in this example.
+1. Run the Vault container.
 
     ```shell
     docker run \
       --name=learn-vault \
       --hostname=learn-vault \
-      --network=learn-vault \
+      --network=learn-vault-ldap-ssh \
       --cap-add=IPC_LOCK \
       -e 'VAULT_DEV_ROOT_TOKEN_ID=c0ffee0ca7' \
       -e 'VAULT_DEV_LISTEN_ADDRESS=0.0.0.0:8200' \
@@ -243,7 +243,7 @@ You can use a simple Vault development server container for this demonstration l
       -p 8200:8200 \
       --detach \
       --rm \
-      vault:1.4.0-rc1
+      vault:1.13.0
     ```
 
     The flags define container name, network hostname, Docker network, IPC_LOCK capability, environment variables to set Vault root token and listen address along with port mapping.
@@ -254,7 +254,7 @@ You can use a simple Vault development server container for this demonstration l
 
     ```plaintext
     ...snip...
-    Status: Downloaded newer image for vault:1.4.0-rc1
+    Status: Downloaded newer image for vault:1.13.0
     089b6beed68bafd942ae771f444008fd51694960973c15ce0af9700874f835b3
     ```
 
@@ -262,12 +262,12 @@ You can use a simple Vault development server container for this demonstration l
 
     Beware that in dev server mode all data persist to memory, but not durable storage. If you stop the container, you will lose any progress from this point onward.
 
-1. Check that the container is up and ready using the `docker ps` command.
+1. Check that the Vault server container is up and ready.
 
     ```shell
     docker ps -f name=learn-vault --format "table {{.Names}}\t{{.Status}}"
     NAMES               STATUS
-    learn-sshd          Up 14 seconds
+    learn-vault          Up 14 seconds
     ```
 
     From this point on, you will execute a shell in the Vault server container and carry out commands to configure the Vault LDAP secrets engine from within the container itself.
@@ -294,15 +294,17 @@ You can use a simple Vault development server container for this demonstration l
     Sealed          false
     Total Shares    1
     Threshold       1
-    Version         1.4.0
-    Cluster Name    vault-cluster-831f0112
-    Cluster ID      6ea9421f-13b7-7eda-10ad-dea8e6e4a3a5
+    Version         1.13.0
+    Build Date      2023-03-01T14:58:13Z
+    Storage Type    inmem
+    Cluster Name    vault-cluster-66c051bc
+    Cluster ID      778dc1a7-d378-3e49-1fd1-63afe8931750
     HA Enabled      false
     ```
 
-    Great, Vault is ready to go and you are now ready to configure the LDAP secrets engine.
+    Vault is ready to go, and you are now ready to configure the LDAP secrets engine.
 
-1. First, use `vault login` authenticate with the root `c0ffee0ca7` token.
+1. First, authenticate with the root token value `c0ffee0ca7`.
 
     ```plaintext
     vault login c0ffee0ca7
@@ -318,7 +320,7 @@ You can use a simple Vault development server container for this demonstration l
     Key                  Value
     ---                  -----
     token                c0ffee0ca7
-    token_accessor       pIHND1DJdDFZHJ1yrDfPmm37
+    token_accessor       LzZz2PbkEOmZCPBVcRmcNWTQ
     token_duration       ∞
     token_renewable      false
     token_policies       ["root"]
@@ -326,14 +328,14 @@ You can use a simple Vault development server container for this demonstration l
     policies             ["root"]
     ```
 
-Now that you authenticated with the root token, continue with the secrets engine configuration.
+Now that you authenticated with the root token, continue with secrets engine configuration.
 
-> ***NOTE:** This guide uses the initial root token for all Vault operations solely for convenience and simplicity. In production use, Vault you should guard root tokens, and not generally use them. Refer to the [Root Tokens](https://master--vault-www.netlify.com/docs/concepts/tokens/#root-tokens) documentation to learn more.
+> ***NOTE:** This lab uses the initial root token for all Vault operations solely for convenience and simplicity. In production use, Vault you should guard root tokens, and not generally use them. Refer to the [Root Tokens](https://master--vault-www.netlify.com/docs/concepts/tokens/#root-tokens) documentation to learn more.
 
 
 #### Enable and configure LDAP Secrets Engine
 
-1. First, use `vault secrets enable` to enable the secrets engine.
+1. Enable the LDAP secrets engine.
 
     ```shell
     vault secrets enable ldap
@@ -345,7 +347,7 @@ Now that you authenticated with the root token, continue with the secrets engine
     Success! Enabled the ldap secrets engine at: ldap/
     ```
 
-1. Next, use `vault write` to configure the secrets engine.
+1. Configure the secrets engine with an example name and admin password.
 
     ```shell
     vault write ldap/config \
@@ -360,7 +362,7 @@ Now that you authenticated with the root token, continue with the secrets engine
     Success! Data written to: ldap/config
     ```
 
-1. Then, rotate the root credential so that Vault has sole control of it from this point going forward.
+1. Rotate the root credential so that Vault has sole control of it from this point forward.
 
     ```shell
     vault write -f ldap/rotate-root
@@ -372,7 +374,7 @@ Now that you authenticated with the root token, continue with the secrets engine
     Success! Data written to: ldap/rotate-root
     ```
 
-1. Now create a static role to manage the _learner_ user's credentials and while you are at it, you can define an automatic rotation period of 24 hours for example as well.
+1. Now create a static role to manage the _learner_ user credentials and while you are at it, you can define an automatic rotation period of 24 hours for example as well.
 
     ```shell
     vault write ldap/static-role/learner \
@@ -399,10 +401,9 @@ Now that you authenticated with the root token, continue with the secrets engine
     Success! Data written to: ldap/rotate-role/learner
     ```
 
-
 ## Test SSH authentication again
 
-Now if you try authenticate with the sshd server container, it should no longer be possible to use the initial value of _password_ for the _learner_ user password.
+Now if you try authenticate with the sshd server container, it should no longer be possible to use the initial value of `password` for the learner user password.
 
 Open a new command terminal and try SSH using the password you specified.
 
@@ -412,14 +413,16 @@ learner@0.0.0.0's password:
 Permission denied, please try again.
 ```
 
-Indeed this is the case, but now that you rotated the credential, what is the new password value?
+Press CTRL+C to stop the ssh session.
+
+You can no longer access the server with that password, but you can now ask Vault for a new password.
 
 ## Back to Vault
 
-Return to the terminal where you are running within the Vault container. You can ask Vault for a credential by reading from the _ldap/static-cred/learner_. If you use the `-field` flag, you can ask for just the raw password string.
+Return to the terminal where you are running a shell within the Vault container. You can ask Vault for a new SSH credential by reading from the `ldap/static-cred/learner` path. If you use the `-field` flag, you can ask for just the raw password string.
 
 ```plaintext
-# vault read -field=password ldap/static-cred/learner
+vault read -field=password ldap/static-cred/learner
 ```
 
 > **NOTE:** This operation produces sensitive output.
@@ -433,7 +436,7 @@ ZdSuDuHEUeeLlNijYXF527RzYdiF34h2YmgAv0EhNhpLRhCUmmpkGzenTQHyTs1H
 If you'd prefer to output all the metadata associated with the secret, just omit the `-field=password`.
 
 ```plaintext
-# vault read ldap/static-cred/learner
+vault read ldap/static-cred/learner
 ```
 
 **Output example:**
@@ -464,21 +467,22 @@ learner@0.0.0.0's password:
 
 ```
 Warning: your password will expire in 0 days
-Last login: Tue Mar 10 17:12:56 2020 from 172.22.0.1
-[learner@sshd ~]$ logout
+Last failed login: Thu Mar  9 16:02:50 UTC 2023 from 172.20.0.1 on ssh:notty
+There was 1 failed login attempt since the last successful login.
+Last login: Thu Mar  9 16:01:21 2023 from 172.20.0.1
 ```
 
 Enter `exit` to exit out of the SSH shell.
 
 ## Cleanup
 
-You can clean up the environment with `docker rm` and `docker network rm` commands:
+You can clean up the environment by stopping the Docker containers and network.
 
 ```shell
 docker rm learn-vault --force && \
   docker rm learn-ldap --force && \
   docker rm learn-sshd --force && \
-  docker network rm learn-vault
+  docker network rm learn-vault-ldap-ssh
 ```
 
 **Output:**
@@ -487,7 +491,7 @@ docker rm learn-vault --force && \
 learn-vault
 learn-ldap
 learn-sshd
-learn-vault
+learn-vault-ldap-ssh
 ```
 
 ## Help and reference
